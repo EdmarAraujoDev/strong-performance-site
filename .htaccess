@@ -1,0 +1,140 @@
+# ============================================================
+#  STRONG PERFORMANCE CENTRO AUTOMOTIVO
+#  .htaccess — Apache Server Security & Performance
+#  strongperformance.com.br
+# ============================================================
+
+# ─── ENGINE ───
+Options -Indexes -MultiViews
+Options +FollowSymLinks
+
+# ─── SECURITY HEADERS ───
+<IfModule mod_headers.c>
+    # Prevent clickjacking
+    Header always set X-Frame-Options "SAMEORIGIN"
+
+    # Prevent MIME sniffing
+    Header always set X-Content-Type-Options "nosniff"
+
+    # XSS protection (legacy browsers)
+    Header always set X-XSS-Protection "1; mode=block"
+
+    # Referrer policy
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+
+    # Permissions policy — restrict dangerous APIs
+    Header always set Permissions-Policy "geolocation=(), microphone=(), camera=(), payment=(), usb=(), accelerometer=(), gyroscope=()"
+
+    # HSTS — Force HTTPS (enable after SSL is active)
+    # Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+
+    # Content Security Policy
+    Header always set Content-Security-Policy "default-src 'self' https: data: blob:; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com data:; img-src 'self' data: https:; frame-src https://www.google.com; connect-src 'self' https:;"
+
+    # Remove server signature
+    Header always unset X-Powered-By
+    Header always unset Server
+
+    # Prevent caching of sensitive files
+    <FilesMatch "\.(htaccess|htpasswd|ini|log|sh|sql|conf|env)$">
+        Header always set Cache-Control "no-store, no-cache, must-revalidate"
+    </FilesMatch>
+</IfModule>
+
+# ─── BLOCK ACCESS TO SENSITIVE FILES ───
+<FilesMatch "(\.htaccess|\.htpasswd|\.env|\.git|\.svn|\.DS_Store|Thumbs\.db|composer\.(json|lock)|package(-lock)?\.json|yarn\.lock|wp-config\.php)">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+# Block access to hidden directories
+RedirectMatch 403 /\\.
+
+# ─── HOTLINK PROTECTION ───
+# Prevent other sites from embedding your images
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{HTTP_REFERER} !^$
+    RewriteCond %{HTTP_REFERER} !^https?://(www\.)?strongperformance\.com\.br [NC]
+    RewriteCond %{HTTP_REFERER} !^https?://localhost [NC]
+    RewriteRule \.(jpg|jpeg|png|gif|webp|svg|ico)$ - [F,L]
+</IfModule>
+
+# ─── BLOCK BAD BOTS & SCRAPERS ───
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Block common bad bots by user-agent
+    RewriteCond %{HTTP_USER_AGENT} (libwww-perl|wget|Python-urllib|curl|scrapy|HTTrack|WebZIP|SiteSucker|WebCopier|Offline|MSFrontPage) [NC]
+    RewriteRule .* - [F,L]
+
+    # Block empty user-agents (often bots)
+    RewriteCond %{HTTP_USER_AGENT} ^-?$
+    RewriteRule .* - [F,L]
+
+    # Block SQL injection patterns in URLs
+    RewriteCond %{QUERY_STRING} (union.*select|select.*from|insert.*into|drop.*table|1=1|or%201=1|benchmark\(|sleep\() [NC,OR]
+    RewriteCond %{QUERY_STRING} (javascript:|vbscript:|<script|%3cscript) [NC]
+    RewriteRule .* - [F,L]
+
+    # Block XSS patterns
+    RewriteCond %{QUERY_STRING} (<|>|%3C|%3E) [NC]
+    RewriteRule .* - [F,L]
+</IfModule>
+
+# ─── RATE LIMITING (requires mod_evasive) ───
+# <IfModule mod_evasive24.c>
+#     DOSHashTableSize    3097
+#     DOSPageCount        5
+#     DOSSiteCount        50
+#     DOSPageInterval     1
+#     DOSSiteInterval     1
+#     DOSBlockingPeriod   300
+# </IfModule>
+
+# ─── FORCE HTTPS (uncomment after SSL is active) ───
+# <IfModule mod_rewrite.c>
+#     RewriteEngine On
+#     RewriteCond %{HTTPS} off
+#     RewriteRule ^(.*)$ https://%{HTTP_HOST}/$1 [R=301,L]
+# </IfModule>
+
+# ─── WWW REDIRECT ───
+# Redirect non-www to www (uncomment preferred version)
+# <IfModule mod_rewrite.c>
+#     RewriteEngine On
+#     RewriteCond %{HTTP_HOST} !^www\. [NC]
+#     RewriteRule ^(.*)$ https://www.%{HTTP_HOST}/$1 [R=301,L]
+# </IfModule>
+
+# ─── CACHE CONTROL ───
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType text/css             "access plus 1 month"
+    ExpiresByType text/javascript      "access plus 1 month"
+    ExpiresByType application/javascript "access plus 1 month"
+    ExpiresByType image/png            "access plus 6 months"
+    ExpiresByType image/jpg            "access plus 6 months"
+    ExpiresByType image/jpeg           "access plus 6 months"
+    ExpiresByType image/webp           "access plus 6 months"
+    ExpiresByType image/svg+xml        "access plus 6 months"
+    ExpiresByType image/gif            "access plus 6 months"
+    ExpiresByType image/x-icon         "access plus 1 year"
+    ExpiresByType font/woff2           "access plus 1 year"
+    ExpiresByType text/html            "access plus 1 hour"
+</IfModule>
+
+# ─── GZIP COMPRESSION ───
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css
+    AddOutputFilterByType DEFLATE text/javascript application/javascript application/json
+    AddOutputFilterByType DEFLATE image/svg+xml application/xml application/xhtml+xml
+    AddOutputFilterByType DEFLATE font/woff font/woff2
+</IfModule>
+
+# ─── CUSTOM ERROR PAGES ───
+ErrorDocument 400 /index.html
+ErrorDocument 401 /index.html
+ErrorDocument 403 /index.html
+ErrorDocument 404 /index.html
+ErrorDocument 500 /index.html

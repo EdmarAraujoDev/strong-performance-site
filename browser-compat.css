@@ -1,0 +1,225 @@
+/* =========================================
+   STRONG PERFORMANCE CENTRO AUTOMOTIVO
+   browser-compat.css — v2 (safe overrides only)
+   Cross-browser additions that do NOT conflict
+   with style.css rules.
+   ========================================= */
+
+/* ─ VENDOR PREFIXES: transitions & animations ─ */
+/* Only add -webkit- prefixes; do NOT redeclare values */
+
+/* Scroll behavior on iOS */
+html {
+    -webkit-overflow-scrolling: touch;
+}
+
+/* ─ BACKDROP-FILTER FALLBACK (Firefox < 103) ─ */
+@supports not (backdrop-filter: blur(1px)) {
+    .header {
+        background: rgba(10, 10, 10, 0.98) !important;
+    }
+}
+
+/* ─ GRID FALLBACK for very old browsers ─ */
+@supports not (display: grid) {
+
+    .services-grid,
+    .diff-grid,
+    .testimonials-grid {
+        display: -webkit-flex;
+        display: flex;
+        -webkit-flex-wrap: wrap;
+        flex-wrap: wrap;
+        gap: 20px;
+    }
+
+    .service-card,
+    .diff-card,
+    .testimonial-card {
+        -webkit-flex: 1 1 280px;
+        flex: 1 1 280px;
+    }
+
+    .about-inner,
+    .location-inner {
+        display: -webkit-flex;
+        display: flex;
+        gap: 40px;
+    }
+
+    .footer-inner {
+        display: -webkit-flex;
+        display: flex;
+        -webkit-flex-wrap: wrap;
+        flex-wrap: wrap;
+        gap: 32px;
+    }
+
+    .gallery-grid {
+        display: -webkit-flex;
+        display: flex;
+        -webkit-flex-wrap: wrap;
+        flex-wrap: wrap;
+        gap: 14px;
+    }
+}
+
+/* ─ SELECTION COLOR ─ */
+::-moz-selection {
+    background: rgba(229, 9, 20, 0.28);
+    color: #fff;
+}
+
+::selection {
+    background: rgba(229, 9, 20, 0.28);
+    color: #fff;
+}
+
+/* ─ FIREFOX SCROLLBAR ─ */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: #E50914 #181818;
+}
+
+/* ─ WEBKIT SCROLLBAR ─ */
+::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+}
+
+::-webkit-scrollbar-track {
+    background: #111111;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #E50914;
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #B5070F;
+}
+
+/* ─ FOCUS VISIBLE (accessibility) ─ */
+:focus-visible {
+    outline: 2px solid #E50914;
+    outline-offset: 3px;
+}
+
+:focus:not(:focus-visible) {
+    outline: none;
+}
+
+/* ─ NO-SELECT UTILITY (applied by security.js) ─ */
+.no-select {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+}
+
+/* ─ IMAGE DRAG PREVENTION ─ */
+img {
+    -webkit-user-drag: none;
+    -moz-user-drag: none;
+    user-drag: none;
+    -ms-interpolation-mode: bicubic;
+}
+
+/* ─ SAFE AREA (iPhone notch) ─ */
+@supports (padding: env(safe-area-inset-bottom)) {
+    .whatsapp-float {
+        bottom: calc(30px + env(safe-area-inset-bottom));
+    }
+
+    .instagram-float {
+        bottom: calc(104px + env(safe-area-inset-bottom));
+    }
+
+    .back-to-top {
+        bottom: calc(30px + env(safe-area-inset-bottom));
+    }
+}
+
+/* ─ HIGH CONTRAST MODE (Windows) ─ */
+@media (forced-colors: active) {
+    .btn-primary {
+        border: 2px solid ButtonText;
+    }
+
+    .text-red {
+        color: Highlight;
+    }
+}
+
+/* ─ REDUCED MOTION (accessibility) ─ */
+@media (prefers-reduced-motion: reduce) {
+
+    *,
+    *::before,
+    *::after {
+        -webkit-animation-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+        -webkit-transition-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+    }
+
+    html {
+        scroll-behavior: auto;
+    }
+
+    [data-aos] {
+        opacity: 1 !important;
+        -webkit-transform: none !important;
+        transform: none !important;
+        transition: none !important;
+    }
+
+    .hero-bg {
+        transition: none !important;
+    }
+}
+
+/* ─ PRINT STYLES ─ */
+@media print {
+
+    .header,
+    .hero-scroll,
+    .whatsapp-float,
+    .instagram-float,
+    .back-to-top,
+    .hero-ctas,
+    .gallery-note {
+        display: none !important;
+    }
+
+    body {
+        background: #fff !important;
+        color: #000 !important;
+        font-family: Georgia, serif;
+    }
+
+    .hero {
+        min-height: auto;
+        padding: 40px 0;
+        background: #f0f0f0 !important;
+    }
+
+    .hero-title,
+    .hero-subtitle,
+    .section-title {
+        color: #000 !important;
+    }
+
+    .text-red {
+        color: #cc0000 !important;
+    }
+
+    a {
+        color: #000 !important;
+    }
+
+    .container {
+        max-width: 100%;
+    }
+}

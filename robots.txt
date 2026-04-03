@@ -1,0 +1,49 @@
+User-agent: *
+Allow: /
+
+# Bloquear indexação de arquivos de sistema e segurança
+Disallow: /.htaccess
+Disallow: /.env
+Disallow: /security.js
+Disallow: /*.log
+Disallow: /*.sql
+Disallow: /*.conf
+Disallow: /*.sh
+
+# Bloquear bots de scraping agressivos
+User-agent: AhrefsBot
+Disallow: /
+
+User-agent: SemrushBot
+Disallow: /
+
+User-agent: MJ12bot
+Disallow: /
+
+User-agent: DotBot
+Disallow: /
+
+User-agent: BLEXBot
+Disallow: /
+
+User-agent: PetalBot
+Disallow: /
+
+User-agent: DataForSeoBot
+Disallow: /
+
+# Permitir bots legítimos
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: Slurp
+Allow: /
+
+User-agent: DuckDuckBot
+Allow: /
+
+# Sitemap
+Sitemap: https://strongperformance.com.br/sitemap.xml
