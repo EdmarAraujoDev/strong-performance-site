@@ -37,7 +37,8 @@ const camera = new THREE.PerspectiveCamera(
     0.1, 100
 );
 camera.position.set(6, 2.5, 8);
-camera.lookAt(0, 0, 0);
+const cameraTarget = new THREE.Vector3(0, 0, 0);
+camera.lookAt(cameraTarget);
 scene.add(camera);
 
 // ── 4. LUZES (100 % físico, sem HDR) ─────
@@ -57,6 +58,17 @@ scene.add(rim);
 
 scene.add(new THREE.HemisphereLight(0xffffff, 0x333333, 2));
 
+// Luz fotorealista dedicada para o Motor (desligada por padrão)
+// Vai acender e criar reflexos no metal bruto do Golf
+const motorLight = new THREE.PointLight(0xffeedd, 0, 8);
+motorLight.position.set(0, 1, 1.5); // Fica literalmente em cima do cofre do motor
+scene.add(motorLight);
+
+// Luz dedicada para a Parte Elétrica (meio do painel/cabine)
+const elecLight = new THREE.PointLight(0xe0f7ff, 0, 8);
+elecLight.position.set(0, 0.8, -0.5);
+scene.add(elecLight);
+
 console.log('💡 Luzes OK');
 
 // ── 5. CARREGAMENTO DO MODELO ────────────
@@ -65,71 +77,166 @@ draco.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
 const loader = new GLTFLoader();
 loader.setDRACOLoader(draco);
 
-let car = null;   // scene root do modelo
-const allParts = [];     // todas as meshes
-const techParts = [];     // rodas, freios, suspensão
-const engineParts = [];     // motor, escapamento
-const elecParts = [];     // faróis, fios
-const bodyParts = [];     // carroceria
-let bodyMats = [];     // materiais da pintura
-const homePos = new Map();   // posição original de cada mesh
+let car = null;
+const allParts = [];
+const techParts = [];
+const engineParts = [];
+const elecParts = [];
+const bodyParts = [];
+const bodyMats = [];
+const extraSuspParts = [];
+const extraElecParts = [];
+
+const homePos = new Map();
 const homeRot = new Map();
 
-function classify(mesh) {
+function classifyAndForce(mesh, forcedCategory) {
     const n = mesh.name.toLowerCase();
-    const mat = mesh.material && mesh.material.name ? mesh.material.name.toLowerCase() : '';
+    const matName = (mesh.material && mesh.material.name) ? mesh.material.name.toLowerCase() : '';
 
-    if (/wheel|rim|disc|brake|tire|caliper|spring|shock|suspension|damper|strut|arm|wishbone|coil|axle|shaft/i.test(n) || /alloy|metal/i.test(mat)) {
+    // As peças que vêm dos arquivos extras nunca se misturam com as rodas/fios originais do Golf
+    if (forcedCategory === 'tech') return extraSuspParts.push(mesh);
+    if (forcedCategory === 'elec') return extraElecParts.push(mesh);
+
+    if (/wheel|rim|disc|brake|tire|caliper|spring|shock|suspension|damper|strut|arm|wishbone|coil|axle|shaft/i.test(n) || /alloy|metal/i.test(matName)) {
         techParts.push(mesh);
-    } else if (/engine|motor|exhaust|transmission|radiator|interior|seat|leather|trim/i.test(n) || /interior|leather/i.test(mat)) {
+    } else if (/engine|motor|exhaust|transmission|radiator|interior|seat|leather|trim/i.test(n) || /interior|leather/i.test(matName)) {
         engineParts.push(mesh);
-    } else if (/light|lamp|wire|battery|glass|lens/i.test(n) || /glass|lens|light/i.test(mat)) {
+    } else if (/light|lamp|wire|battery|glass|lens/i.test(n) || /glass|lens|light/i.test(matName)) {
         elecParts.push(mesh);
     } else {
         bodyParts.push(mesh);
     }
 }
 
-loader.load(
-    'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/models/gltf/ferrari.glb',
-    (gltf) => {
-        car = gltf.scene;
-        car.scale.setScalar(1.2);
-        car.position.y = -0.5;
+async function loadModels() {
+    try {
+        const [gltfCar, gltfSusp, gltfElec] = await Promise.all([
+            loader.loadAsync('golf.glb'),
+            loader.loadAsync('suspensao.glb').catch(() => null),
+            loader.loadAsync('parteeletrica.glb').catch(() => null)
+        ]);
 
+        car = new THREE.Group();
+
+        // Adiciona e extrai mecânica de base do Golf
+        const baseCar = gltfCar.scene;
+        car.add(baseCar);
+
+        // --- SISTEMA DE AUTO-ESCALA E AUTO-ALINHAMENTO (Calculado puramente pelo Golf) ---
+        const box = new THREE.Box3().setFromObject(baseCar);
+        const size = box.getSize(new THREE.Vector3());
+
+        const maxDim = Math.max(size.x, size.y, size.z);
+        const scaleFactor = 4.5 / maxDim;
+        car.scale.setScalar(scaleFactor);
+
+        const finalBox = new THREE.Box3().setFromObject(baseCar);
+        // Aplica o scaleFactor no min.y para alinhar perfeitamente no chao PÓS-escala
+        car.position.y = -(finalBox.min.y * scaleFactor) - 0.5;
+
+        // Adiciona suspensao extra se existir - Auto-Fit
+        let extraSusp;
+        if (gltfSusp) {
+            extraSusp = gltfSusp.scene;
+            const sizeS = new THREE.Box3().setFromObject(extraSusp).getSize(new THREE.Vector3());
+            const maxS = Math.max(sizeS.x, sizeS.y, sizeS.z);
+            if (maxS > 0) extraSusp.scale.setScalar((maxDim * 0.4) / maxS); // Reduzido mais ainda a pedido do usuario
+            car.add(extraSusp);
+        }
+
+        // Adiciona parteeletrica extra se existir - Auto-Fit
+        let extraElec;
+        if (gltfElec) {
+            extraElec = gltfElec.scene;
+
+            // ✅ CORREÇÃO DE ORIENTAÇÃO (vira de frente)
+            extraElec.rotation.y = Math.PI;
+
+            const sizeE = new THREE.Box3().setFromObject(extraElec).getSize(new THREE.Vector3());
+            const maxE = Math.max(sizeE.x, sizeE.y, sizeE.z);
+            if (maxE > 0) extraElec.scale.setScalar((maxDim * 0.9) / maxE);
+
+            car.add(extraElec);
+        }
+
+        scene.add(car);
+
+        // --- FILTRAGEM ---
         car.traverse(child => {
             if (!child.isMesh) return;
+
+            child.castShadow = true;
+            child.receiveShadow = true;
+
             allParts.push(child);
             homePos.set(child, child.position.clone());
             homeRot.set(child, child.rotation.clone());
-            classify(child);
 
-            // garante visibilidade
+            // Verifica de quem essa malha é filha para forçar a classificação!
+            let forced = null;
+            if (extraElec && extraElec.children && isChildOf(child, extraElec)) forced = 'elec';
+            else if (extraSusp && extraSusp.children && isChildOf(child, extraSusp)) forced = 'tech';
+
+            classifyAndForce(child, forced);
+
+            // garante visibilidade inicial sem destruir reflexos PBR
             const mats = Array.isArray(child.material) ? child.material : [child.material];
-            mats.forEach(m => {
-                m.transparent = true;
-                m.opacity = 1;
-                m.depthWrite = true;
-                m.needsUpdate = true;
-            });
 
-            // coleta materiais de pintura
-            const mn = (child.material?.name || '').toLowerCase();
-            if (mn.includes('body') || mn.includes('paint') || child.name.toLowerCase().includes('body')) {
-                mats.forEach(m => { if (!bodyMats.includes(m)) bodyMats.push(m); });
-            }
+            mats.forEach(m => {
+                // Se for as peças extras de dentro, começa invisível para não poluir o exterior do carro!
+                if (forced === 'tech' || forced === 'elec') {
+                    m.transparent = true;
+                    m.opacity = 0;
+                    m.depthWrite = false;
+                    m.needsUpdate = true;
+                }
+
+                // coleta materiais de pintura filtrados
+                const matName = (m.name || '').toLowerCase();
+                const meshName = child.name.toLowerCase();
+
+                let isPaint = matName.includes('paint') || matName.includes('body') || matName.includes('carrosserie') || matName.includes('color');
+                if (!isPaint && meshName.includes('body')) {
+                    isPaint = true;
+                }
+
+                if (matName.includes('glass') || matName.includes('plastic') || matName.includes('chrome') ||
+                    matName.includes('window') || matName.includes('tire') || matName.includes('wheel') ||
+                    matName.includes('black') || matName.includes('grill') || matName.includes('light')) {
+                    isPaint = false;
+                }
+
+                if (isPaint && !bodyMats.includes(m)) {
+                    bodyMats.push(m);
+                }
+            });
         });
 
-        scene.add(car);
-        console.log(`🚗 Modelo carregado — ${allParts.length} meshes`);
+        console.log(`🚗 Modelo Combinado carregado — ${allParts.length} meshes`);
+        console.log(` -> Elétrica extra detectada: ${gltfElec ? 'Sim' : 'Não'}`);
+        console.log(` -> Suspensão extra detectada: ${gltfSusp ? 'Sim' : 'Não'}`);
         setupGSAP();
         setupColorPicker();
-    },
-    undefined,
-    err => console.error('❌ Erro ao carregar modelo:', err)
-);
 
-// ── 6. GSAP + SCROLLTRIGGER ──────────────
+    } catch (err) {
+        console.error('Erro ao baixar GLB:', err);
+    }
+}
+
+// Auxiliar para verificação de parentesco longo na Arvore 3D
+function isChildOf(child, parentGroup) {
+    let current = child;
+    while (current && current !== scene) {
+        if (current === parentGroup) return true;
+        current = current.parent;
+    }
+    return false;
+}
+
+loadModels();
+
+// ── 6. ANIMAÇÕES (GSAP) ───────────────────
 function setupGSAP() {
     gsap.registerPlugin(ScrollTrigger);
 
@@ -165,39 +272,59 @@ function setupGSAP() {
             0);
     });
 
-    // --- B) SEÇÃO: Suspensão e Freios (X-Ray) ---
-    createXRay('#step-brakes', techParts,
-        { x: 2.5, y: 0.3, z: -3 },
-        { x: 0.8, y: -0.3, z: -1.5 }
+    // --- B) SEÇÃO: Suspensão e Freios (Isolada pros arquivos do usuario) ---
+    // Box Right -> Car Left -> target.x = 1.0
+    createXRay('#step-brakes', extraSuspParts,
+        { x: 4.5, y: -0.2, z: -3 }, // camPos
+        { x: 1.0, y: -0.5, z: 0 },  // target
+        null
     );
 
     // --- C) SEÇÃO: Motor ---
+    // Box Left -> Car Right -> target.x = -1.2
     createXRay('#step-engine', engineParts,
-        { x: -1.5, y: 2, z: 3 },
-        { x: 0, y: 0.5, z: 1 }
+        { x: -1.0, y: 1.5, z: 3.5 }, // camPos
+        { x: -0.5, y: 0.2, z: 0 }    // target
+
+
     );
 
-    // --- D) SEÇÃO: Elétrica ---
-    createXRay('#step-electrical', elecParts,
-        { x: -2, y: 0.5, z: -3.5 },
-        { x: -0.5, y: 0.2, z: -1.5 }
+    // --- D) SEÇÃO: Elétrica (Isolada pros arquivos do usuario) ---
+    // Box Right -> Car Left -> target.x = 1.2
+    createXRay('#step-electrical', extraElecParts,
+        { x: -2, y: 0.5, z: -3.5 }, // camPos
+        { x: 1.2, y: 0.2, z: 0 }    // target
     );
 
     // --- E) SEÇÃO: Customizer (remonta tudo) ---
     const tlCustom = gsap.timeline({
         scrollTrigger: {
             trigger: '#step-customizer',
-            start: 'top center',
+            start: 'top 60%',
             end: 'bottom center',
-            scrub: 0.5,
+            scrub: 1.5,
         }
     });
+
+    // Centraliza câmera e target
+    tlCustom.to(camera.position, { x: -3.5, y: 1, z: 3.5 }, 0);
+    tlCustom.to(cameraTarget, { x: 0, y: 0, z: 0 }, 0);
+
     allParts.forEach(part => {
         const p = homePos.get(part);
         const r = homeRot.get(part);
         tlCustom.to(part.position, { x: p.x, y: p.y, z: p.z }, 0);
         tlCustom.to(part.rotation, { x: r.x, y: r.y, z: r.z }, 0);
-        eachMat(part, m => tlCustom.to(m, { opacity: 1 }, 0));
+        eachMat(part, m => {
+            // Remonta 100% de opacidade A MENOS QUE seja as partes internas (senão furam a lataria!)
+            if (extraElecParts.includes(part) || extraSuspParts.includes(part)) {
+                tlCustom.to(m, { opacity: 0, onStart: () => m.transparent = true }, 0);
+            } else {
+                tlCustom.to(m, { opacity: 1, onStart: () => { m.depthWrite = true; m.transparent = true; } }, 0);
+            }
+            // Restaura brilho metálico se foi alterado
+            tlCustom.to(m.color, { r: 1, g: 1, b: 1 }, 0);
+        });
     });
 
     // --- F) FADE ao entrar Sobre ---
@@ -214,36 +341,53 @@ function setupGSAP() {
     console.log('🎬 GSAP animations OK');
 }
 
-/** Cria um efeito X-Ray: grupo highlighted, resto transparente */
-function createXRay(trigger, highlightGroup, camPos) {
+/** Cria um efeito X-Ray: grupo highlighted, resto transparente e câmera alinhada */
+function createXRay(trigger, highlightGroup, camPos, lookAtPos) {
     const tl = gsap.timeline({
         scrollTrigger: {
             trigger,
-            start: 'top 60%',    // Atraso: a caixa de texto começa a aparecer e depois o raio-x acende
-            end: 'bottom center',
-            scrub: 1.5,          // Transição lenta de opacidade
+            start: 'top 70%',    // A peça começa a se formar assim que o box do texto sobe da barra inferior
+            end: 'center center',// Termina EXACTAMENTE quando o texto atinge o equador do celular (meio do caminho)
+            scrub: 1.0,          // Mais rápido e responsivo
         }
     });
 
-    // Se o grupo estiver vazio (o modelo não tem essas peças), usa techParts (rodas) como fallback visual
-    const activeGroup = highlightGroup.length > 0 ? highlightGroup : techParts;
+    // Se o grupo estiver vazio, reverte pra esconder tudo (fallback)
+    const activeGroup = highlightGroup;
 
     allParts.forEach(part => {
         if (activeGroup.includes(part)) {
-            // este grupo fica 100 % visível e volta à posição original
-            eachMat(part, m => tl.to(m, { opacity: 1 }, 0));
+            // Este grupo que o usuario enviou fica 100% visível
+            eachMat(part, m => {
+                tl.to(m, { opacity: 1, onStart: () => { m.depthWrite = true; m.transparent = true; } }, 0);
+            });
             const p = homePos.get(part);
             const r = homeRot.get(part);
             if (p) tl.to(part.position, { x: p.x, y: p.y, z: p.z }, 0);
             if (r) tl.to(part.rotation, { x: r.x, y: r.y, z: r.z }, 0);
         } else {
-            // demais ficam quase invisíveis
-            eachMat(part, m => tl.to(m, { opacity: 0.06 }, 0));
+            // Demais peças evapóram completamente (opacity 0)
+            eachMat(part, m => {
+                tl.to(m, { opacity: 0, onStart: () => { m.depthWrite = false; m.transparent = true; } }, 0);
+            });
         }
     });
 
-    // move câmera
+    // move câmera e alinha o eixo central (target) focando longe do texto
     tl.to(camera.position, camPos, 0);
+    if (lookAtPos) tl.to(cameraTarget, lookAtPos, 0);
+
+    // Sistema de Iluminação natural: Acende foco de estúdio em cima da peça na seção correspondente!
+    if (highlightGroup === engineParts) {
+        tl.to(motorLight, { intensity: 20 }, 0); // Estoura uma luz cinematográfica no motor
+        tl.to(elecLight, { intensity: 0 }, 0);
+    } else if (highlightGroup === elecParts) {
+        tl.to(motorLight, { intensity: 0 }, 0);
+        tl.to(elecLight, { intensity: 20 }, 0); // Acende holofote na elétrica
+    } else {
+        tl.to(motorLight, { intensity: 0 }, 0);
+        tl.to(elecLight, { intensity: 0 }, 0);
+    }
 }
 
 /** Util: itera materiais de uma mesh */
@@ -282,11 +426,11 @@ const clock = new THREE.Clock();
     const t = clock.getElapsedTime();
 
     // idle rotation suave no Hero
-    if (car) {
-        car.rotation.y = Math.sin(t * 0.15) * 0.06;
+    if (car && window.scrollY < 200) {
+        car.rotation.y = Math.sin(t * 0.15) * 0.05;
     }
 
-    camera.lookAt(0, 0, 0);
+    camera.lookAt(cameraTarget);
     renderer.render(scene, camera);
     requestAnimationFrame(tick);
 })();
