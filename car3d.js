@@ -381,9 +381,12 @@ function createXRay(trigger, highlightGroup, camPos, lookAtPos) {
     if (highlightGroup === engineParts) {
         tl.to(motorLight, { intensity: 20 }, 0); // Estoura uma luz cinematográfica no motor
         tl.to(elecLight, { intensity: 0 }, 0);
-    } else if (highlightGroup === elecParts) {
+    } else if (highlightGroup === elecParts || highlightGroup === extraElecParts) {
         tl.to(motorLight, { intensity: 0 }, 0);
         tl.to(elecLight, { intensity: 20 }, 0); // Acende holofote na elétrica
+    } else if (highlightGroup === techParts || highlightGroup === extraSuspParts) {
+        tl.to(motorLight, { intensity: 10 }, 0); // Luz suave para suspensão
+        tl.to(elecLight, { intensity: 0 }, 0);
     } else {
         tl.to(motorLight, { intensity: 0 }, 0);
         tl.to(elecLight, { intensity: 0 }, 0);
