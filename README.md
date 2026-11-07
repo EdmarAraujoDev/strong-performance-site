@@ -38,6 +38,22 @@ O projeto combina design moderno, recursos interativos e experiências visuais e
 
 Um dos diferenciais do projeto é a utilização de modelos tridimensionais de veículos, permitindo uma experiência visual mais imersiva.
 
+## 🚗 Experiência 3D Interativa com Animação por Scroll
+
+Um dos principais diferenciais do projeto é a experiência tridimensional desenvolvida com animações sincronizadas à rolagem da página.
+
+Inicialmente, o veículo é apresentado completamente montado. Conforme o usuário percorre o site, o modelo 3D passa por uma animação de desmontagem progressiva, revelando seus componentes.
+
+Ao chegar às seções de serviços, a experiência direciona o foco para o sistema correspondente. Por exemplo, na seção de suspensão, o veículo é desmontado visualmente até permanecer apenas o conjunto da suspensão em evidência.
+
+### Recursos implementados
+- Modelo 3D de veículo inicialmente completo.
+- Animação de desmontagem progressiva controlada pelo scroll.
+- Separação e movimentação dos componentes em ambiente 3D.
+- Transições visuais sincronizadas com as seções do site.
+- Destaque individual dos sistemas relacionados aos serviços.
+- Experiência interativa desenvolvida com Three.js e GSAP.
+
 A interface foi desenvolvida para combinar identidade visual, apresentação dos serviços e recursos interativos, mantendo o foco na experiência do usuário.
 
 ## 📂 Estrutura do projeto
