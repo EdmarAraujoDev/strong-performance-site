@@ -56,6 +56,8 @@ Ao chegar às seções de serviços, a experiência direciona o foco para o sist
 
 A interface foi desenvolvida para combinar identidade visual, apresentação dos serviços e recursos interativos, mantendo o foco na experiência do usuário.
 
+<img width="400" height="867" alt="GiF Strong Performance" src="https://github.com/user-attachments/assets/450b9123-9a48-4324-8edc-dc2c455f6cc7" />
+
 ## 📂 Estrutura do projeto
 
 ```text
